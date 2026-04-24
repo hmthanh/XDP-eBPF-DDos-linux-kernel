@@ -41,27 +41,39 @@ jobs:
       - name: Find bpftool binary and set environment
         run: |
           # The bpftool wrapper script (/usr/bin/bpftool) checks kernel version strictly.
-          # Find and use the actual binary directly, bypassing the version check.
+          # Find the actual binary from the installed linux-tools package.
           BPFTOOL_BIN=""
           
-          # Check standard linux-tools locations
-          for path in /usr/lib/linux-tools-*/bpftool /usr/lib/*/linux-tools-*/bpftool; do
-            if [ -x "$path" ] 2>/dev/null; then
-              BPFTOOL_BIN="$path"
-              break
+          # Try to get the actual bpftool from the installed linux-tools package
+          if command -v dpkg-query >/dev/null 2>&1; then
+            # Find the actual bpftool binary from linux-tools package
+            BPFTOOL_BIN=$(dpkg -L linux-tools-6.17.0-1011-azure 2>/dev/null | grep "bin/bpftool$" | head -1)
+            if [ -z "$BPFTOOL_BIN" ]; then
+              # Fallback: search all linux-tools packages
+              BPFTOOL_BIN=$(dpkg -L "linux-tools-*" 2>/dev/null | grep "bin/bpftool$" | head -1)
             fi
-          done
-          
-          # Fallback: search more broadly
-          if [ -z "$BPFTOOL_BIN" ]; then
-            BPFTOOL_BIN=$(find /usr -name bpftool -type f -executable 2>/dev/null | grep -v "^/usr/bin/bpftool$" | head -1)
           fi
           
-          if [ -z "$BPFTOOL_BIN" ] || [ ! -x "$BPFTOOL_BIN" ]; then
-            echo "ERROR: Could not find bpftool binary"
-            echo "Installed packages:"
-            dpkg -l | grep linux-tools
-            find /usr -name bpftool -type f 2>/dev/null || true
+          # If dpkg search didn't work, search /usr/lib directly
+          if [ -z "$BPFTOOL_BIN" ]; then
+            for dir in /usr/lib/linux-tools-* /usr/bin/linux-tools-*; do
+              if [ -f "$dir/bpftool" ] && [ -x "$dir/bpftool" ]; then
+                BPFTOOL_BIN="$dir/bpftool"
+                break
+              fi
+            done
+          fi
+          
+          # Last resort: use the wrapper but set env to bypass version check
+          if [ -z "$BPFTOOL_BIN" ]; then
+            echo "Using wrapper bpftool (version check may fail)"
+            BPFTOOL_BIN="/usr/bin/bpftool"
+          fi
+          
+          if [ ! -x "$BPFTOOL_BIN" ]; then
+            echo "ERROR: Could not find executable bpftool"
+            echo "Searching for bpftool files:"
+            find /usr -name bpftool 2>/dev/null || true
             exit 1
           fi
           
