@@ -51,16 +51,12 @@ jobs:
           else
             echo "Warning: Could not find bpftool binary"
           fi
+          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build project
         run: |
-          # Use the bpftool from /usr/local/bin if available (fixed version)
-          # Otherwise fall back to the PATH version
-          if [ -x /usr/local/bin/bpftool ]; then
-            make clean && make all BPFTOOL=/usr/local/bin/bpftool
-          else
-            make clean && make all
-          fi
+          # Use the fixed bpftool via PATH
+          make clean && make all
 
       - name: List generated artifacts
         run: |
