@@ -40,13 +40,31 @@ jobs:
 
       - name: Find bpftool binary and set environment
         run: |
-          # The bpftool wrapper script checks kernel version, which may not match.
-          # Find the actual bpftool binary directly, bypassing the wrapper.
-          BPFTOOL_BIN=$(find /usr/lib/linux-tools-* -name bpftool -type f 2>/dev/null | head -1)
+          # The bpftool wrapper script (/usr/bin/bpftool) checks kernel version strictly.
+          # Find and use the actual binary directly, bypassing the version check.
+          BPFTOOL_BIN=""
+          
+          # Check standard linux-tools locations
+          for path in /usr/lib/linux-tools-*/bpftool /usr/lib/*/linux-tools-*/bpftool; do
+            if [ -x "$path" ] 2>/dev/null; then
+              BPFTOOL_BIN="$path"
+              break
+            fi
+          done
+          
+          # Fallback: search more broadly
+          if [ -z "$BPFTOOL_BIN" ]; then
+            BPFTOOL_BIN=$(find /usr -name bpftool -type f -executable 2>/dev/null | grep -v "^/usr/bin/bpftool$" | head -1)
+          fi
+          
           if [ -z "$BPFTOOL_BIN" ] || [ ! -x "$BPFTOOL_BIN" ]; then
             echo "ERROR: Could not find bpftool binary"
+            echo "Installed packages:"
+            dpkg -l | grep linux-tools
+            find /usr -name bpftool -type f 2>/dev/null || true
             exit 1
           fi
+          
           echo "Found bpftool at: $BPFTOOL_BIN"
           echo "BPFTOOL=$BPFTOOL_BIN" >> $GITHUB_ENV
           "$BPFTOOL_BIN" version
