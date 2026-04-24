@@ -38,8 +38,29 @@ jobs:
             echo "✗ /sys/kernel/btf/vmlinux NOT FOUND (may need CONFIG_DEBUG_INFO_BTF=y)"
           fi
 
+      - name: Fix bpftool wrapper version mismatch
+        run: |
+          # The bpftool wrapper script checks kernel version, which may not match.
+          # Find and use the actual bpftool binary directly.
+          BPFTOOL_BIN=$(find /usr/lib/linux-tools-* -name bpftool -type f 2>/dev/null | head -1)
+          if [ -n "$BPFTOOL_BIN" ] && [ -x "$BPFTOOL_BIN" ]; then
+            echo "Found bpftool at: $BPFTOOL_BIN"
+            sudo ln -sf "$BPFTOOL_BIN" /usr/local/bin/bpftool
+            echo "Verified: /usr/local/bin/bpftool works"
+            /usr/local/bin/bpftool version
+          else
+            echo "Warning: Could not find bpftool binary"
+          fi
+
       - name: Build project
-        run: make clean && make all
+        run: |
+          # Use the bpftool from /usr/local/bin if available (fixed version)
+          # Otherwise fall back to the PATH version
+          if [ -x /usr/local/bin/bpftool ]; then
+            make clean && make all BPFTOOL=/usr/local/bin/bpftool
+          else
+            make clean && make all
+          fi
 
       - name: List generated artifacts
         run: |
