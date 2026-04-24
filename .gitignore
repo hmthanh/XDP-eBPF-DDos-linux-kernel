@@ -1,0 +1,9 @@
+.DS_Store
+*.o
+*.ko
+*.mod.c
+*.symvers
+*.order
+*.dts
+*.dts.tmp
+*.dts.pre.tmp
