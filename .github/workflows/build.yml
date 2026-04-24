@@ -18,9 +18,11 @@ jobs:
 
       - name: Install build dependencies
         run: |
+          # Install tools for the actual running kernel
+          KERNEL_VERSION=$(uname -r)
           sudo apt-get install -y \
             clang-17 llvm-17 libbpf-dev \
-            linux-tools-generic \
+            linux-tools-azure \
             linux-headers-generic \
             iproute2 libelf-dev zlib1g-dev \
             build-essential
