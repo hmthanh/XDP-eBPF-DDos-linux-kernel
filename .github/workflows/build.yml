@@ -38,25 +38,23 @@ jobs:
             echo "✗ /sys/kernel/btf/vmlinux NOT FOUND (may need CONFIG_DEBUG_INFO_BTF=y)"
           fi
 
-      - name: Fix bpftool wrapper version mismatch
+      - name: Find bpftool binary and set environment
         run: |
           # The bpftool wrapper script checks kernel version, which may not match.
-          # Find and use the actual bpftool binary directly.
+          # Find the actual bpftool binary directly, bypassing the wrapper.
           BPFTOOL_BIN=$(find /usr/lib/linux-tools-* -name bpftool -type f 2>/dev/null | head -1)
-          if [ -n "$BPFTOOL_BIN" ] && [ -x "$BPFTOOL_BIN" ]; then
-            echo "Found bpftool at: $BPFTOOL_BIN"
-            sudo ln -sf "$BPFTOOL_BIN" /usr/local/bin/bpftool
-            echo "Verified: /usr/local/bin/bpftool works"
-            /usr/local/bin/bpftool version
-          else
-            echo "Warning: Could not find bpftool binary"
+          if [ -z "$BPFTOOL_BIN" ] || [ ! -x "$BPFTOOL_BIN" ]; then
+            echo "ERROR: Could not find bpftool binary"
+            exit 1
           fi
-          echo "PATH=/usr/local/bin:$PATH" >> $GITHUB_ENV
+          echo "Found bpftool at: $BPFTOOL_BIN"
+          echo "BPFTOOL=$BPFTOOL_BIN" >> $GITHUB_ENV
+          "$BPFTOOL_BIN" version
 
       - name: Build project
         run: |
-          # Use the fixed bpftool via PATH
-          make clean && make all
+          # Pass bpftool binary explicitly to make, bypassing wrapper version check
+          make clean && make all BPFTOOL="${BPFTOOL}"
 
       - name: List generated artifacts
         run: |
