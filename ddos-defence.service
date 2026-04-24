@@ -1,0 +1,80 @@
+[Unit]
+Description=XDP/eBPF DDoS defence and per-IP rate limiter
+Documentation=file:///usr/local/share/doc/xdp-ddos/README.md
+After=network-online.target
+Wants=network-online.target
+# If the NIC disappears, restart the unit rather than leaking XDP state
+ConditionPathExists=/sys/fs/bpf
+
+[Service]
+Type=simple
+
+# Prepare the TC dataplane before loading XDP — ordered pre-start so that
+# ifb0, FQ, and the tc-BPF filters are in place before xdp_ddos_user binds.
+ExecStartPre=/usr/local/bin/tc_rate_limit.sh
+
+# Main control daemon. Argument is the NIC name; edit to match your host
+# (or use a systemd drop-in to override).
+ExecStart=/usr/local/sbin/xdp_ddos_user eth0
+
+# SIGHUP reloads /etc/ddos/blocklist.txt
+ExecReload=/bin/kill -HUP $MAINPID
+
+# On stop, ExecStopPost runs unconditionally — guarantees the NIC does
+# not keep a stale XDP program attached even if the daemon crashed.
+ExecStopPost=/usr/sbin/ip link set eth0 xdp off
+
+Restart=on-failure
+RestartSec=5
+
+# --- Resource limits -----------------------------------------------------
+LimitNOFILE=20000000
+# LimitMEMLOCK=infinity is REQUIRED for BPF map locking. Without it, the
+# 2 M-entry LRU_HASH cannot be allocated (~180 MB locked kernel memory).
+LimitMEMLOCK=infinity
+# Never let the OOM killer select this process.
+OOMScoreAdjust=-900
+
+# --- Scheduling ----------------------------------------------------------
+# Real-time FIFO so the perf-buffer poll loop cannot be starved by BEAM.
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=10
+# Pin to the CPU that services NIC IRQs if known — example for a typical
+# 32-core ConnectX-6 deployment. Comment out if unsure.
+# CPUAffinity=0 1
+
+# --- Capabilities --------------------------------------------------------
+# Drop everything we don't need. CAP_BPF + CAP_PERFMON are the modern
+# (5.8+) replacements for CAP_SYS_ADMIN for BPF; CAP_SYS_ADMIN is still
+# needed to attach XDP and to create pinned maps under /sys/fs/bpf.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN CAP_PERFMON CAP_BPF
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN CAP_PERFMON CAP_BPF
+
+# Run as a non-root user. Create it with:
+#   useradd --system --no-create-home --shell /usr/sbin/nologin ddos-user
+User=ddos-user
+Group=ddos-user
+
+# --- Filesystem isolation -----------------------------------------------
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=false        # we need to stay able to re-read /proc/sys
+ProtectKernelModules=false         # ifb module must be loadable at runtime
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK AF_PACKET
+RestrictNamespaces=true
+RestrictRealtime=false             # we USE real-time scheduling
+LockPersonality=true
+NoNewPrivileges=true
+
+# Explicitly writable paths (ProtectSystem=strict makes /usr etc. read-only).
+ReadWritePaths=/sys/fs/bpf /run /var/log/ddos /etc/ddos
+
+# stdout → journal; perf events already JSON-encoded line-per-event
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xdp_ddos
+
+[Install]
+WantedBy=multi-user.target

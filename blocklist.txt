@@ -1,0 +1,11 @@
+# /etc/ddos/blocklist.txt
+#
+# One CIDR block or bare IP per line. Lines starting with '#' are comments.
+# Prefixes /20..  /32 are expanded to individual /32 entries in the hash
+# map (max 4096 addresses per line). Wider prefixes are accepted only as
+# network-address entries — see README for the LPM_TRIE upgrade path.
+#
+# Examples:
+#   203.0.113.7
+#   198.51.100.0/24
+#   # (blank or comment line)

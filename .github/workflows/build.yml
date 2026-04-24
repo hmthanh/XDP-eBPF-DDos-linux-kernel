@@ -1,0 +1,71 @@
+name: Build XDP/eBPF DDoS Defence
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update package cache
+        run: sudo apt-get update
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get install -y \
+            clang-17 llvm-17 libbpf-dev \
+            linux-tools-generic bpftool \
+            linux-headers-generic \
+            iproute2 libelf-dev zlib1g-dev \
+            build-essential
+
+      - name: Verify kernel configuration
+        run: |
+          echo "Kernel version:"
+          uname -r
+          echo "BTF support:"
+          if [ -f /sys/kernel/btf/vmlinux ]; then
+            echo "✓ /sys/kernel/btf/vmlinux available"
+          else
+            echo "✗ /sys/kernel/btf/vmlinux NOT FOUND (may need CONFIG_DEBUG_INFO_BTF=y)"
+          fi
+
+      - name: Build project
+        run: make clean && make all
+
+      - name: List generated artifacts
+        run: |
+          echo "=== Generated binaries and objects ==="
+          ls -lh *.o xdp_ddos_user vmlinux.h xdp_ddos.skel.h 2>/dev/null || echo "Some artifacts not found"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: xdp-ddos-binaries
+          path: |
+            xdp_ddos_user
+            xdp_ddos_kern.o
+            tc_ingress_kern.o
+            tc_egress_kern.o
+            xdp_ddos.skel.h
+            vmlinux.h
+          retention-days: 30
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            xdp_ddos_user
+            xdp_ddos_kern.o
+            tc_ingress_kern.o
+            tc_egress_kern.o
+          draft: false
+          prerelease: false
