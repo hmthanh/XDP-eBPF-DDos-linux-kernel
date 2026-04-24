@@ -347,4 +347,4 @@ production if you want belt-and-braces.
 
 ## License
 
-![LICENSE](https://img.shields.io/github/license/discord/xdp-ebpf-ddos-linux-kernel)
+![LICENSE](https://img.shields.io/github/license/hmthanh/xdp-ebpf-ddos-linux-kernel)
