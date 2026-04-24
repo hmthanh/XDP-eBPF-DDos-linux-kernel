@@ -347,4 +347,4 @@ production if you want belt-and-braces.
 
 ## License
 
-GPL-2.0 (required for SEC("xdp") / SEC("tc") program loading).
+![LICENSE](https://img.shields.io/github/license/discord/xdp-ebpf-ddos-linux-kernel)
