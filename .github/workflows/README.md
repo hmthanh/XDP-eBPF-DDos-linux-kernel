@@ -5,9 +5,11 @@ This directory contains automated CI/CD workflows for building and validating th
 ## Workflows
 
 ### 1. `build.yml` — Main Build Pipeline
+
 **Triggers**: Push to `main`/`develop` branches, pull requests to `main`
 
 **Steps**:
+
 - Updates package cache
 - Installs build dependencies (clang-17, llvm-17, libbpf-dev, bpftool, linux-headers, libelf-dev, zlib1g-dev)
 - Verifies kernel BTF support (`/sys/kernel/btf/vmlinux`)
@@ -17,6 +19,7 @@ This directory contains automated CI/CD workflows for building and validating th
 - Creates GitHub release on git tag push
 
 **Artifacts**:
+
 - `xdp_ddos_user` — userspace daemon
 - `xdp_ddos_kern.o` — kernel XDP program
 - `tc_ingress_kern.o` — ingress traffic control eBPF program
@@ -25,9 +28,11 @@ This directory contains automated CI/CD workflows for building and validating th
 - `vmlinux.h` — kernel BTF type definitions
 
 ### 2. `lint.yml` — Code Quality Checks
+
 **Triggers**: Push to `main`/`develop` branches, pull requests to `main`
 
 **Steps**:
+
 - Checks C code formatting with `clang-format`
 - Validates shell script syntax with `shellcheck` (tc_rate_limit.sh)
 - Verifies Makefile syntax
@@ -36,6 +41,7 @@ This directory contains automated CI/CD workflows for building and validating th
 ## Environment Requirements
 
 The workflows are optimized for:
+
 - **OS**: Ubuntu 24.04 LTS (matches project requirements)
 - **Kernel**: 6.8+ with `CONFIG_DEBUG_INFO_BTF=y`
 - **Toolchain**: clang-17, llvm-17, gcc, build-essential
@@ -68,6 +74,7 @@ act -j lint
 ## Customization
 
 To modify the workflows:
+
 1. Edit `.github/workflows/build.yml` or `.github/workflows/lint.yml`
 2. Commit and push — workflows will trigger automatically
 3. Monitor in the GitHub Actions tab of your repository
